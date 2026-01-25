@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "typeRoots": [
+            "./@types",
+            "./node_modules/@types"
+        ],
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "skipLibCheck": true,
+        "allowImportingTsExtensions": true,
+        "noEmit": true
+    }
+} 
