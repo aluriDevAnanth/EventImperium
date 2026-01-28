@@ -1,59 +1,39 @@
 import { Hono } from "hono";
-import { Chat } from "../db/Chat.ts";
-import User from "../db/User.ts";
-import { authM } from "../middlewares/authM.ts";
-import { createResponse, createSession } from "better-sse";
-import { activeClients } from "../../main.ts";
-
+import { Chat } from "src/db/Chat.ts";
+import User from "src/db/User.ts";
+import { authM } from "src/middlewares/authM.ts";
+import type { Server } from "socket.io";
+import { io, userSocketMap } from "@/scoketIO.ts";
 export const router = new Hono();
 
-router.get("/chat", (c) => {
-  const userId = c.req.query("userId") || "anonymous";
+async function sendPrivateMessage(userId: string, data: any): Promise<boolean> {
+  const socketId = userSocketMap.get(userId);
+  if (!socketId || !io) return false;
 
-  return createResponse(c.req.raw, (session) => {
-    session.state = {
-      userId,
-      connectedAt: new Date(),
-    };
-
-    activeClients.set(userId, session);
-
-    session.on("disconnected", () => {
-      activeClients.delete(userId);
-      console.log(`User ${userId} disconnected.`);
-    });
-
-    session.push({ message: "Connected!" }, "status");
-  });
-});
-
-function sendPrivateMessage(userId, data) {
-  const session = activeClients.get(userId);
-  if (session) {
-    session.push(data, "push_chat");
+  try {
+    io.to(socketId).emit("push_chat", data);
     return true;
+  } catch (error) {
+    return false;
   }
-  return false;
 }
 
-router.post("/chat_entry", async (c) => {
+router.post("/api/v1/chat_entry", async (c) => {
   try {
     const body = await c.req.json();
-    console.log(body.chat);
-
     const chatt = await Chat.create(body.chat);
-
-    sendPrivateMessage(chatt.reciever, body.chat);
+    const sent = await sendPrivateMessage(chatt.reciever, body.chat);
 
     return c.json({
       chat: chatt,
+      delivered: sent,
     });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
 });
 
-router.get("/getMessages/:userId", authM, async (c) => {
+router.get("/api/v1/getMessages/:userId", authM, async (c) => {
   try {
     const userId = c.req.param("userId");
 

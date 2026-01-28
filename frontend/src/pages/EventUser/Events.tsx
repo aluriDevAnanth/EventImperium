@@ -3,9 +3,16 @@ import { useContext, useEffect, useState } from "react";
 import AuthCon from "@/context/AuthContext";
 import type { Eventt } from "@/types";
 import { Button, Modal, Form, Row, Col, Card } from "react-bootstrap";
-import { useForm } from "react-hook-form";
+import {
+  useForm,
+  type FieldErrors,
+  type UseFormHandleSubmit,
+  type UseFormRegister,
+  type UseFormSetValue,
+} from "react-hook-form";
 import { useNavigate } from "react-router";
 import dayjs from "dayjs";
+import AuthenticatedImage from "@/pages/components/AuthenticatedImage";
 
 interface EventCardProps {
   eventt: Eventt;
@@ -23,8 +30,9 @@ function EventCard({ eventt, refreshEvents }: EventCardProps) {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
-  } = useForm<Eventt & { file: File }>({
+  } = useForm<Eventt & { file: FileList }>({
     defaultValues: {
       ...eventt,
       datetime: eventt.datetime
@@ -33,13 +41,15 @@ function EventCard({ eventt, refreshEvents }: EventCardProps) {
     },
   });
 
-  const onEditSubmit = async (data: Eventt) => {
+  const onEditSubmit = async (data: Eventt & { file: FileList }) => {
     try {
       const payload = {
         ...data,
         datetime: dayjs(data.datetime).toISOString(),
         userID: user?._id,
+        file: null,
       };
+      console.log("onEditSubmit", payload);
       await axios.put(`${import.meta.env.VITE_BASE_URL}/event`, payload, {
         headers: { Authorization: `Bearer ${auth}` },
       });
@@ -71,7 +81,13 @@ function EventCard({ eventt, refreshEvents }: EventCardProps) {
         className="shadow-sm m-2 overflow-hidden"
         style={{ width: "18rem", cursor: "pointer" }}
       >
-        <Card.Img variant="top" src={`https://picsum.photos/id/237/200/150`} />
+        <AuthenticatedImage
+          width={200}
+          height={150}
+          variant="top"
+          path={eventt.thumbnail}
+        />
+
         <Card.Body>
           <Card.Title className="text-truncate">{eventt.name}</Card.Title>
 
@@ -120,7 +136,12 @@ function EventCard({ eventt, refreshEvents }: EventCardProps) {
         </Modal.Header>
         <Modal.Body>
           <Form onSubmit={handleSubmit(onEditSubmit)}>
-            <EventFormFields register={register} errors={errors} />
+            <EventFormFields
+              setValue={setValue}
+              handleSubmit={handleSubmit}
+              register={register}
+              errors={errors}
+            />
             <div className="d-flex gap-2 mt-3">
               <Button variant="primary" type="submit" className="flex-grow-1">
                 Save Changes
@@ -133,7 +154,55 @@ function EventCard({ eventt, refreshEvents }: EventCardProps) {
   );
 }
 
-function EventFormFields({ register, errors }: any) {
+function EventFormFields({
+  handleSubmit,
+  register,
+  errors,
+  setValue,
+}: {
+  register: UseFormRegister<
+    Eventt & {
+      file: FileList;
+    }
+  >;
+  handleSubmit: UseFormHandleSubmit<
+    Eventt & {
+      file: FileList;
+    },
+    Eventt & {
+      file: FileList;
+    }
+  >;
+  errors: FieldErrors<
+    Eventt & {
+      file: FileList;
+    }
+  >;
+  setValue: UseFormSetValue<
+    Eventt & {
+      file: FileList;
+    }
+  >;
+}) {
+  const { auth } = useContext(AuthCon);
+
+  const onFileUpload = async (data: Eventt & { file: FileList }) => {
+    const formData = new FormData();
+    formData.append("file", data.file[0]);
+
+    const res = await axios.post(
+      `${import.meta.env.VITE_BASE_URL}/uploadFile`,
+      formData,
+      {
+        headers: { Authorization: `Bearer ${auth}` },
+      },
+    );
+
+    console.log(res.data.thumbnail);
+
+    setValue("thumbnail", res.data.thumbnail || "");
+  };
+
   return (
     <>
       <Form.Group className="mb-3">
@@ -160,15 +229,27 @@ function EventFormFields({ register, errors }: any) {
         </Col>
 
         <Col md={5} className="d-flex flex-column justify-content-start">
-          <Form.Group>
-            <Form.Label>Upload File</Form.Label>
+          <Form.Group controlId="formFile" className="d-flex flex-column gap-3">
+            <div className="d-flex gap-3">
+              <Form.Label className="m-0">Upload File</Form.Label>
+              <Button size="sm" onClick={handleSubmit(onFileUpload)}>
+                Upload File
+              </Button>
+            </div>
             <Form.Control
               type="file"
               isInvalid={!!errors.file}
-              {...register("file", { required: "File is required" })}
+              {...register("file", {
+                required: "File is required",
+                validate: (files: FileList) => {
+                  if (!files || files.length === 0)
+                    return "At least one file is required";
+                  return true;
+                },
+              })}
             />
             <Form.Control.Feedback type="invalid">
-              {errors.file?.message}
+              {errors.file?.message as string}
             </Form.Control.Feedback>
           </Form.Group>
         </Col>
@@ -220,9 +301,10 @@ export default function Events() {
   const {
     register,
     handleSubmit,
+    setValue,
     reset,
     formState: { errors },
-  } = useForm<Eventt & { file: File }>();
+  } = useForm<Eventt & { file: FileList }>();
 
   const getEvents = async () => {
     try {
@@ -232,7 +314,7 @@ export default function Events() {
           headers: { Authorization: `Bearer ${auth}` },
         },
       );
-      setEvents(Array.isArray(res.data.events) ? res.data.events : []);
+      setEvents(res.data.events || []);
     } catch (err) {
       console.error("Fetch failed", err);
     }
@@ -263,9 +345,7 @@ export default function Events() {
   }, [auth, user?._id]);
 
   return (
-    <div className="py-4 mx-3" style={{ minHeight: "100vh" }}>
-      <h2 className="text-center mb-4">Upcoming Events</h2>
-
+    <div className="py-3 mx-3" style={{ minHeight: "100vh" }}>
       {auth && (
         <Button
           onClick={() => setShowPost(true)}
@@ -296,7 +376,12 @@ export default function Events() {
         </Modal.Header>
         <Modal.Body>
           <Form onSubmit={handleSubmit(onPostSubmit)}>
-            <EventFormFields register={register} errors={errors} />
+            <EventFormFields
+              setValue={setValue}
+              handleSubmit={handleSubmit}
+              register={register}
+              errors={errors}
+            />
             <Button variant="success" type="submit" className="w-100 mt-3">
               Create Event
             </Button>

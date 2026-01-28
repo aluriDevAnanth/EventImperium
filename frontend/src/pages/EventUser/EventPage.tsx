@@ -49,21 +49,19 @@ export default function EventPage() {
 
   const fetchEvent = useCallback(async () => {
     try {
-      const { data } = await axios.get(
+      const res = await axios.get(
         `${import.meta.env.VITE_BASE_URL}/event/${id}`,
         {
           headers: { Authorization: `Bearer ${auth}` },
         },
       );
-      const eventData = data.event[0];
-      setEvent(eventData);
-
+      setEvent(res.data.event);
       const total =
-        eventData.expenses?.reduce(
+        res.data.event.expenses?.reduce(
           (acc: number, curr: any) => acc + Number(curr.amount),
           0,
         ) || 0;
-      if (total > eventData.budget) {
+      if (total > res.data.event.budget) {
         setShowBudgetToast(true);
       }
     } catch (err) {

@@ -14,12 +14,14 @@
     "@hono/swagger-ui": "^0.5.3",
     "@hono/zod-openapi": "^1.2.0",
     "@scalar/hono-api-reference": "^0.9.32",
+    "@socket.io/bun-engine": "^0.1.0",
     "bcrypt-ts": "^8.0.0",
-    "better-sse": "^0.16.1",
     "dayjs": "^1.11.19",
     "dotenv": "^17.2.3",
     "hono": "^4.11.3",
     "mongoose": "^9.0.2",
+    "pocketbase": "^0.26.6",
+    "socket.io": "^4.8.3",
     "zod": "^4.3.5"
   },
   "devDependencies": {

@@ -47,7 +47,6 @@ export interface Eventt {
   typee: string;
   thumbnail: string;
   invitation: string;
-  images: string[];
   guests: IGuest[];
   vendors: Vendor[];
   createdAt?: string;

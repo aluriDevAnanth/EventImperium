@@ -19,14 +19,12 @@ function App() {
 
   return (
     <Routes>
-      {/* 1. If NOT authenticated, show Login. Redirect any other path to "/" */}
       {!auth ? (
         <>
           <Route path="/" element={<Login />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </>
       ) : (
-        /* 2. If authenticated, wrap all protected routes in OutletC */
         <Route element={<OutletC />}>
           <Route
             path="/"
@@ -50,7 +48,6 @@ function App() {
           <Route path="/vendorChat" element={<VendorChat />} />
           <Route path="/notify" element={<Notify />} />
 
-          {/* Redirect any unknown authenticated paths to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       )}

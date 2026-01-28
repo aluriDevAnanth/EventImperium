@@ -40,7 +40,6 @@ const EventSchema = new mongoose.Schema(
     budget: { type: Number, required: true },
     expenses: [ExpenseSchema],
     typee: { type: String, required: true },
-    images: [{ type: String, required: true }],
     invitation: { type: String },
     guests: [GuestSchema],
     vendors: [

@@ -12,6 +12,7 @@ import {
   ConversationHeader,
 } from "@chatscope/chat-ui-kit-react";
 import { Plus, Star, StarFill } from "react-bootstrap-icons";
+import Login from "@/pages/Login";
 
 interface VendorListProps {
   vendors: Vendor[];
@@ -369,9 +370,12 @@ function ChatApp({ vendor, onClose }: { vendor: Vendor; onClose: () => void }) {
     const newMessage = {
       sender: user._id,
       reciever: selectedUserId,
+      eventID: window.location.pathname.split("/").pop(),
       text,
       createdAt: new Date().toISOString(),
     };
+
+    console.log(newMessage);
 
     setMessages((prev: any[]) => [...prev, newMessage]);
 

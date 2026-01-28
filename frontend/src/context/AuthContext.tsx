@@ -1,8 +1,9 @@
 import axios from "axios";
-import React, { createContext, useEffect, useState } from "react";
+import React, { createContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import Cookies from "js-cookie";
 import type { Chat, UserT } from "@/types";
+import { io, Socket } from "socket.io-client";
 
 type AuthConT = {
   user: null | UserT;
@@ -33,21 +34,27 @@ export function AuthPro({ children }: { children: ReactNode }) {
     Cookies.get("EventEmpireAuth") ?? null,
   );
   const [showInvi, setShowInvi] = useState<boolean>(false);
+  const socketRef = useRef<Socket | null>(null);
 
   async function fetchMessages() {
-    const res = await axios.get(
-      import.meta.env.VITE_BASE_URL + `/getMessages/${user?._id}`,
-      {
-        headers: { Authorization: `Bearer ${auth}` },
-      },
-    );
-    setMessages(res.data.chats);
+    if (!user?._id) return;
+    try {
+      const res = await axios.get(
+        `${import.meta.env.VITE_BASE_URL}/getMessages/${user._id}`,
+        {
+          headers: { Authorization: `Bearer ${auth}` },
+        },
+      );
+      setMessages(res.data.chats);
+    } catch (err) {
+      console.error("Fetch error", err);
+    }
   }
 
   useEffect(() => {
     if (auth) {
       axios
-        .get(import.meta.env.VITE_BASE_URL + "/auth", {
+        .get(`${import.meta.env.VITE_BASE_URL}/auth`, {
           headers: { Authorization: `Bearer ${auth}` },
         })
         .then((res) => setUser(res.data.user))
@@ -58,40 +65,40 @@ export function AuthPro({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  /* useEffect(() => {
-    if (!user?._id || !auth) return;
-
-    const url = `${import.meta.env.VITE_BASE_URL}/chat?userId=${user._id}`;
-
-    const eventSource = new EventSource(url);
-
-    const handlePushChat = (event: MessageEvent) => {
-      try {
-        const data: Chat = JSON.parse(event.data);
-        setMessages((prev) => { 
-          const exists = prev.some((m) => m.sender === data.sender);
-          return exists ? prev : [...prev, data];
-        });
-      } catch (err) {
-        console.error("SSE Parse Error", err);
-      }
-    };
-
-    eventSource.addEventListener("push_chat", handlePushChat);
-
-    eventSource.onerror = (err) => {
-      console.error("SSE Connection error", err);
-    };
-
-    return () => {
-      eventSource.removeEventListener("push_chat", handlePushChat);
-      eventSource.close();
-    };
-  }, [user?._id, auth]); */
+  useEffect(() => {
+    if (user?._id) fetchMessages();
+  }, [user?._id]);
 
   useEffect(() => {
-    if (user && user._id) fetchMessages();
-  }, [user]);
+    if (!user?._id || !auth) return;
+
+    const socket = io("http://localhost:3000", {
+      path: "/socket.io/",
+      query: { userId: user._id },
+      transports: ["websocket"],
+    });
+
+    socketRef.current = socket;
+
+    socket.on("push_chat", (data) => {
+      console.log(data);
+
+      setMessages((prev) => {
+        const exists = prev.some((m) => m.sender == data.sender);
+        console.log(1, exists);
+
+        return !exists ? prev : [...prev, data];
+      });
+    });
+
+    socket.on("connect", () => console.log("Connected to Socket.io"));
+    socket.on("connect_error", (err) => console.error("Socket Error:", err));
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [user?._id, auth]);
 
   return (
     <AuthCon.Provider
